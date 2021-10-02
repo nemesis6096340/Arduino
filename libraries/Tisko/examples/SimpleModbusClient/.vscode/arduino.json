@@ -1,0 +1,5 @@
+{
+    "sketch": "examples\\SimpleModbusClient\\SimpleModbusClient.ino",
+    "board": "arduino:avr:uno",
+    "port": "COM7"
+}

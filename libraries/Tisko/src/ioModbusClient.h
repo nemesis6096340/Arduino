@@ -65,7 +65,7 @@ void ioModbusClient::poll()
             clientModbus.flush();
             printBuffer(frame, sizeInput);
             uint16_t sizeOutput = receivePDU(frame, sizeInput);
-
+            printBuffer(frame, sizeOutput);
             if (sizeOutput != 0)
             {
                 //MBAP

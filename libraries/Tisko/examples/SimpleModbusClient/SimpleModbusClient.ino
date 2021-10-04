@@ -11,6 +11,21 @@ IPAddress myDns(192, 168, 0, 1);
 
 uint16_t registers[6] = {100, 425, 30, 1727, 0, 256};
 
+uint8_t discrets[3] = {0b11110000,
+                       0b11001100,
+                       0b10101010};
+
+uint8_t pinMask_DIN[] = {22, 24, 26, 28, 30, 32, 34, 36};
+uint8_t pinMask_DOUT[] = {23, 25, 27, 29, 31, 33, 35, 37};
+uint8_t pinMask_AIN[] = {A0, A1, A2, A3, A4, A5, A6, A7};
+uint8_t pinMask_AOUT[] = {5, 6, 7, 8, 11, 12};
+
+/*
+uint8_t pinMask_DIN[] = {2, 3};
+uint8_t pinMask_DOUT[] = {5,6};
+uint8_t pinMask_AIN[] = {A0, A1, A2, A3};
+uint8_t pinMask_AOUT[] = {7,8};
+*/
 void initEthernet()
 {
     pinMode(9, OUTPUT);
@@ -56,6 +71,9 @@ void setup()
 
     modbusIP.begin(1583);
     modbusIP.setAddress(7);
+
+    modbusIP.addDiscretsCoil(0, discrets, 3);
+
     modbusIP.addHoldingRegisters(10, registers, 6);
 }
 

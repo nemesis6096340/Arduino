@@ -278,17 +278,20 @@ uint8_t temp = 0;
 
           uint8_t i = pos / 8;
           uint8_t j = pos % 8;
-          
+          uint8_t k = (pos-startingAddress) % 8;
+          Serial.print(pos);
+          Serial.print(';');
           Serial.print(i);
           Serial.print(':');
           Serial.print(j);
           Serial.print('=');
+           Serial.print(k);
+          Serial.print('-');
           Serial.print(bitRead(searchDisc->discrets[i], j));
           Serial.print('\t');
-          bitWrite(temp, bitn++, bitRead(searchDisc->discrets[i], j));
+          bitWrite(temp, k, bitRead(searchDisc->discrets[i], j));
           frame[3 + i] = temp;
-          if(bitn==8){
-            bitn = 0;
+          if(k==7){
             temp=0;
           }
           

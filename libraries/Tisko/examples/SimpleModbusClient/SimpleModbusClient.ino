@@ -5,7 +5,7 @@
 
 ioModbusClient modbusIP(502);
 
-byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+byte mac[] = {0x90, 0xA2, 0xDA, 0xAC, 0x00, 0x00};
 IPAddress ip(192, 168, 0, 177);
 IPAddress myDns(192, 168, 0, 1);
 
@@ -69,10 +69,10 @@ void setup()
     Serial.begin(115200);
     initEthernet();
 
-    modbusIP.begin(1583);
+    modbusIP.begin(123);
     modbusIP.setAddress(7);
 
-    modbusIP.addDiscretsCoil(0, discrets, 3);
+    modbusIP.addDiscretsInput(0, discrets, 3);
 
     modbusIP.addHoldingRegisters(10, registers, 6);
 }

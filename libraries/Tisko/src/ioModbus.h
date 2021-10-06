@@ -170,9 +170,7 @@ uint16_t ioModbus::receivePDU(uint8_t *frameInput, uint16_t sizeInput)
       break;
     case MODBUS_FUNCTION_WRITE_MULTIPLE_REGISTERS:
       if (frame[6] == (sizeInput - 9))
-      {
         sizeOutput = writeMultipleRegisters(startingAddress, no_of_registers);
-      }
       else
         sizeOutput = 0;
       break;
@@ -313,37 +311,78 @@ uint16_t ioModbus::readDiscrets(uint16_t startingAddress, uint16_t no_of_registe
     return exceptionResponse(MODBUS_FUNCTION_READ_HOLDING_REGISTERS, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 }
 
-uint16_t ioModbus::writeMultipleCoils(uint16_t startingAddress, uint16_t no_of_discrets)
+uint16_t ioModbus::writeSingleCoil(uint16_t startingAddress)
 {
   discreet_t *searchDisc;
+  uint8_t functionAddress = MODBUS_ADDRESS_DISCRETE_COILS;
+  uint8_t function = frame[1];
+
+  searchDisc = this->searchDiscreet(startingAddress + functionAddress);
+  if (searchDisc != 0)
+  {
+    uint16_t offset = searchDisc->address - functionAddress;
+    uint16_t maxData = startingAddress + 1;
+    //check exception 2 ILLEGAL DATA ADDRESS
+    if (startingAddress + functionAddress <= searchDisc->address + searchDisc->size * 8)
+    {
+      // check exception 3 ILLEGAL DATA VALUE
+      if (maxData + functionAddress <= searchDisc->address + searchDisc->size * 8)
+      {
+        // [07][05][01][F8][00][00]
+        // [07][05][01][FC][FF][00]
+        uint16_t status = ((frame[4] << 8) | frame[5]);
+        if (status != 0xFF00 && status != 0x0000)
+          return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
+        else
+        {
+          uint16_t pos = startingAddress - offset;
+          bitWrite(searchDisc->discrets[pos / 8], pos % 8, (bool)status);
+          return 6;
+        }
+      }
+      else
+        return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE); // exception 3 ILLEGAL DATA VALUE
+    }
+    else
+      return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS*/
+  }
+  else
+    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+}
+uint16_t ioModbus::writeMultipleCoils(uint16_t startingAddress, uint16_t no_of_discrets)
+{
+  //[07][0F][01][F8][00][01][01][00]	Size: 8
+  //[07][0F][01][F4][00][08][01][55]
+  discreet_t *searchDisc;
   searchDisc = this->searchDiscreet(startingAddress + MODBUS_ADDRESS_DISCRETE_COILS);
+
   if (searchDisc != 0)
   {
     uint8_t function = frame[1];
+
     uint16_t offset = searchDisc->address - MODBUS_ADDRESS_DISCRETE_COILS;
     uint16_t maxData = startingAddress + no_of_discrets;
 
     // check exception 2 ILLEGAL DATA ADDRESS
-    //Serial.print(startingAddress + functionAddress + no_of_registers); Serial.print("<="); Serial.println(searchDisc->address + searchDisc->size * 8);
+    //Serial.print(startingAddress + MODBUS_ADDRESS_DISCRETE_COILS + no_of_discrets); Serial.print("<="); Serial.println(searchDisc->address + searchDisc->size * 8);
     if (startingAddress + MODBUS_ADDRESS_DISCRETE_COILS + no_of_discrets <= searchDisc->address + searchDisc->size * 8)
     {
       // check exception 3 ILLEGAL DATA VALUE
       if (maxData + MODBUS_ADDRESS_DISCRETE_COILS <= searchDisc->address + searchDisc->size * 8)
       {
         uint8_t noOfBytes = frame[6];
-        //[07][0F][00][0E][00][03][01][07]
         for (uint16_t idx = 0; idx < noOfBytes; idx++)
         {
-          uint8_t temp = frame[7+idx];
+          uint8_t temp = frame[7 + idx];
           uint16_t diff = startingAddress - offset;
           for (uint16_t index = startingAddress; index < maxData; index++)
           {
             uint16_t pos = index - offset;
             uint8_t i = (pos - diff) / 8;
             uint8_t j = (pos - diff) % 8;
-            bitWrite(searchDisc->discrets[pos / 8], pos % 8,bitRead(temp,j));
-          }        
-        }        
+            bitWrite(searchDisc->discrets[pos / 8], pos % 8, bitRead(temp, j));
+          }
+        }
         return 6;
       }
       else
@@ -352,7 +391,6 @@ uint16_t ioModbus::writeMultipleCoils(uint16_t startingAddress, uint16_t no_of_d
     else
       return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS*/
   }
-
   else
     return exceptionResponse(MODBUS_FUNCTION_READ_HOLDING_REGISTERS, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 }

@@ -72,8 +72,7 @@ void setup()
     modbusIP.begin(123);
     modbusIP.setAddress(7);
 
-    modbusIP.addDiscretsInput(0, discrets, 3);
-
+    modbusIP.addDiscretsCoil(500, discrets, 3);
     modbusIP.addHoldingRegisters(10, registers, 6);
 }
 

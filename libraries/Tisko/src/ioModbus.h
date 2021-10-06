@@ -157,13 +157,11 @@ uint16_t ioModbus::receivePDU(uint8_t *frameInput, uint16_t sizeInput)
     uint8_t function = frame[1];
     uint16_t startingAddress = ((frame[2] << 8) | frame[3]); // combine the starting address bytes
     uint16_t no_of_registers = ((frame[4] << 8) | frame[5]); // combine the number of register bytes
+    
     switch (function)
     {
     case MODBUS_FUNCTION_READ_HOLDING_REGISTERS:
       sizeOutput = readRegisters(startingAddress, no_of_registers, MODBUS_ADDRESS_HOLDING_REGISTERS);
-      break;
-    case MODBUS_FUNCTION_READ_INPUT_REGISTERS:
-      sizeOutput = readRegisters(startingAddress, no_of_registers, MODBUS_ADDRESS_INPUT_REGISTERS);
       break;
     case MODBUS_FUNCTION_WRITE_SINGLE_REGISTER:
       sizeOutput = writeSingleRegister(startingAddress);
@@ -181,6 +179,10 @@ uint16_t ioModbus::receivePDU(uint8_t *frameInput, uint16_t sizeInput)
 
     case MODBUS_FUNCTION_READ_DISCRETE_INPUTS:
       sizeOutput = readDiscrets(startingAddress, no_of_registers, MODBUS_ADDRESS_DISCRETE_INPUTS);
+      break;
+
+    case MODBUS_FUNCTION_READ_INPUT_REGISTERS:
+      sizeOutput = readRegisters(startingAddress, no_of_registers, MODBUS_ADDRESS_INPUT_REGISTERS);
       break;
 
     case MODBUS_FUNCTION_WRITE_SINGLE_COIL:
@@ -349,6 +351,7 @@ uint16_t ioModbus::writeSingleCoil(uint16_t startingAddress)
   else
     return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 }
+
 uint16_t ioModbus::writeMultipleCoils(uint16_t startingAddress, uint16_t no_of_discrets)
 {
   //[07][0F][01][F8][00][01][01][00]	Size: 8

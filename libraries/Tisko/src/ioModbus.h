@@ -238,7 +238,7 @@ uint16_t ioModbus::readDiscrets(uint16_t startingAddress, uint16_t no_of_registe
 {
   discreet_t *searchDisc;
   searchDisc = this->searchDiscreet(startingAddress + functionAddress);
-
+  uint8_t function = frame[1];
   uint16_t maxData = startingAddress + no_of_registers; //6
 
   if (searchDisc != 0)
@@ -310,7 +310,7 @@ uint16_t ioModbus::readDiscrets(uint16_t startingAddress, uint16_t no_of_registe
   }
 
   else
-    return exceptionResponse(MODBUS_FUNCTION_READ_HOLDING_REGISTERS, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 }
 
 uint16_t ioModbus::writeSingleCoil(uint16_t startingAddress)
@@ -402,27 +402,25 @@ uint16_t ioModbus::readRegisters(uint16_t startingAddress, uint16_t no_of_regist
 {
   register_t *searchReg;
   searchReg = this->searchRegister(startingAddress + functionAddress);
-
+  uint8_t function = frame[1];
   uint16_t maxData = startingAddress + no_of_registers;
-
+  
   if (searchReg != 0)
-  {
-    uint8_t function = frame[1];
+  { 
     uint16_t offset = searchReg->address - functionAddress;
 
     // check exception 2 ILLEGAL DATA ADDRESS
-    if (startingAddress < searchReg->address + searchReg->size)
+    if (startingAddress + functionAddress + no_of_registers <= searchReg->address + searchReg->size)
     {
       // check exception 3 ILLEGAL DATA VALUE
-      if (maxData <= searchReg->address + searchReg->size)
+      if (maxData +functionAddress <= searchReg->address + searchReg->size)
       {
         uint8_t noOfBytes = no_of_registers * 2;
-        uint8_t responseFrameSize = 5 + noOfBytes; // Address, function, noOfBytes, (dataLo + dataHi) * number of registers, crcLo, crcHi
         frame[0] = address;
         frame[1] = function;
         frame[2] = noOfBytes;
+
         uint8_t address = 3; // PDU starts at the 4th byte
-        //unsigned int temp;
 
         for (uint16_t index = startingAddress; index < maxData; index++)
         {
@@ -442,7 +440,7 @@ uint16_t ioModbus::readRegisters(uint16_t startingAddress, uint16_t no_of_regist
       return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS
   }
   else
-    return exceptionResponse(MODBUS_FUNCTION_READ_HOLDING_REGISTERS, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 }
 
 uint16_t ioModbus::writeSingleRegister(uint16_t startingAddress)
@@ -463,8 +461,10 @@ uint16_t ioModbus::writeSingleRegister(uint16_t startingAddress)
       return 6;
     }
     else
-      return exceptionResponse(MODBUS_FUNCTION_WRITE_SINGLE_REGISTER, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS
+      return exceptionResponse(MODBUS_FUNCTION_WRITE_SINGLE_REGISTER, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
   }
+  else
+      return exceptionResponse(MODBUS_FUNCTION_WRITE_SINGLE_REGISTER, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 }
 
 uint16_t ioModbus::writeMultipleRegisters(uint16_t startingAddress, uint16_t no_of_registers)

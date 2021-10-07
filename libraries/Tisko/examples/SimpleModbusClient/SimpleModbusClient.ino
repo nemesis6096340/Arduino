@@ -31,7 +31,7 @@ void initEthernet()
     digitalWrite(9, HIGH);
 
     Ethernet.init(10);
-    /*// start the Ethernet connection:
+    // start the Ethernet connection:
     Serial.println("Initialize Ethernet with DHCP:");
     if (Ethernet.begin(mac) == 0)
     {
@@ -50,14 +50,14 @@ void initEthernet()
             Serial.println("Ethernet cable is not connected.");
         }
         // try to congifure using IP address instead of DHCP:
-    */
+    
     Ethernet.begin(mac, ip, myDns);
-    /*}
+    }
     else
     {
         Serial.print("  DHCP assigned IP ");
         Serial.println(Ethernet.localIP());
-    }*/
+    }
     // give the Ethernet shield a second to initialize:
     delay(1000);
 }
@@ -87,7 +87,7 @@ void configurePins()
 {
     for (int i = 0; i < NUM_DISCRETE_INPUT; i++)
     {
-        pinMode(pinMask_DIN[i], INPUT);
+        pinMode(pinMask_DIN[i], INPUT_PULLUP);
     }
     
     for (int i = 0; i < NUM_DISCRETE_COILS; i++)

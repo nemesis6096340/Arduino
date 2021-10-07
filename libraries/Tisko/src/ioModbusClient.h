@@ -91,6 +91,7 @@ void ioModbusClient::poll()
         {
             clientModbus.stop();
         }
+        free(frame);
     }
 }
 

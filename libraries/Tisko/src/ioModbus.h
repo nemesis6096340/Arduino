@@ -169,6 +169,7 @@ uint16_t ioModbus::receivePDU(uint8_t *frameInput, uint16_t sizeInput)
     case MODBUS_FUNCTION_WRITE_MULTIPLE_REGISTERS:
       sizeOutput = writeMultipleRegisters(startingAddress, no_of_registers);
       break;
+
 #ifndef USE_HOLDING_REGISTERS_ONLY
     case MODBUS_FUNCTION_READ_COILS:
       sizeOutput = readDiscrets(startingAddress, no_of_registers, MODBUS_ADDRESS_DISCRETE_COILS);
@@ -233,51 +234,62 @@ void ioModbus::addInputRegisters(uint16_t offset, uint16_t *holdingRegisters, ui
 
 uint16_t ioModbus::readDiscrets(uint16_t startingAddress, uint16_t no_of_registers, uint16_t functionAddress)
 {
+  uint8_t function = frame[1];
+  //Check value (no_of_registers)
+  if (no_of_registers < 0x0001 || no_of_registers > 0x07D0)
+    return this->exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
+
+  //Check Address
+  //Check only startreg. Is this correct?
+  //When I check all registers in range I got errors in ScadaBR
+  //I think that ScadaBR request more than one in the single request
+  //when you have more then one datapoint configured from same type.
+
   discreet_t *searchDisc;
   searchDisc = this->searchDiscreet(startingAddress + functionAddress);
-  uint8_t function = frame[1];
-  uint16_t maxData = startingAddress + no_of_registers; //6
 
-  if (searchDisc != 0)
+  if (searchDisc == 0)
+    return this->exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  //Serial.println(startingAddress);
+  //Serial.print("Adress: ");
+  //Serial.println(searchDisc->address);
+  
+  uint16_t maxData = startingAddress + no_of_registers;
+  uint16_t offset = searchDisc->address - functionAddress;
+  //Serial.print("Offset: ");
+  //Serial.println(offset);
+
+  // check exception 2 ILLEGAL DATA ADDRESS
+  //Serial.print(startingAddress + functionAddress + no_of_registers); Serial.print("<="); Serial.println(searchDisc->address + searchDisc->size * 8);
+  if (startingAddress + functionAddress + no_of_registers <= searchDisc->address + searchDisc->size * 8)
   {
-    //Serial.println(startingAddress);
-    //Serial.print("Adress: ");
-    //Serial.println(searchDisc->address);
-    uint8_t function = frame[1];
-    uint16_t offset = searchDisc->address - functionAddress;
-    //Serial.print("Offset: ");
-    //Serial.println(offset);
-
-    // check exception 2 ILLEGAL DATA ADDRESS
-    //Serial.print(startingAddress + functionAddress + no_of_registers); Serial.print("<="); Serial.println(searchDisc->address + searchDisc->size * 8);
-    if (startingAddress + functionAddress + no_of_registers <= searchDisc->address + searchDisc->size * 8)
+    // check exception 3 ILLEGAL DATA VALUE
+    if (maxData + functionAddress <= searchDisc->address + searchDisc->size * 8)
     {
-      // check exception 3 ILLEGAL DATA VALUE
-      if (maxData + functionAddress <= searchDisc->address + searchDisc->size * 8)
+      uint8_t noOfBytes = no_of_registers / 8;
+      if (no_of_registers % 8 > 0)
+        noOfBytes++;
+      //Serial.print("NoBytes: ");
+      //Serial.println(noOfBytes);
+
+      frame[0] = address;
+      frame[1] = function;
+      frame[2] = noOfBytes;
+
+      uint8_t temp = 0;
+
+      uint16_t diff = startingAddress - offset;
+      for (uint16_t index = startingAddress; index < maxData; index++)
       {
-        uint8_t noOfBytes = no_of_registers / 8;
-        if (no_of_registers % 8 > 0)
-          noOfBytes++;
-        //Serial.print("NoBytes: ");
-        //Serial.println(noOfBytes);
 
-        frame[0] = address;
-        frame[1] = function;
-        frame[2] = noOfBytes;
+        uint16_t pos = index - offset;
+        uint8_t i = (pos - diff) / 8;
+        uint8_t j = (pos - diff) % 8;
+        if (j == 0)
+          temp = 0;
 
-        uint8_t temp = 0;
-
-        uint16_t diff = startingAddress - offset;
-        for (uint16_t index = startingAddress; index < maxData; index++)
-        {
-
-          uint16_t pos = index - offset;
-          uint8_t i = (pos - diff) / 8;
-          uint8_t j = (pos - diff) % 8;
-          if (j == 0)
-            temp = 0;
-
-          /*Serial.print(pos);
+        /*Serial.print(pos);
           Serial.print(';');
           Serial.print(i);
           Serial.print(':');
@@ -287,27 +299,23 @@ uint16_t ioModbus::readDiscrets(uint16_t startingAddress, uint16_t no_of_registe
           Serial.print(bitRead(searchDisc->discrets[pos / 8], pos % 8));
           Serial.print('\t');
           */
-          bitWrite(temp, j, bitRead(searchDisc->discrets[pos / 8], pos % 8));
-          frame[3 + i] = temp;
-          /*
+        bitWrite(temp, j, bitRead(searchDisc->discrets[pos / 8], pos % 8));
+        frame[3 + i] = temp;
+        /*
           boolean temp = bitRead(searchDisc->discrets[i], bitn);
           if (temp)
             bitSet(frame[3 + i], bitn);
           else
             bitClear(frame[3 + i], bitn);*/
-        }
-        //Serial.println();
-        return noOfBytes + 3;
       }
-      else
-        return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE); // exception 3 ILLEGAL DATA VALUE
+      //Serial.println();
+      return noOfBytes + 3;
     }
     else
-      return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS*/
+      return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE); // exception 3 ILLEGAL DATA VALUE
   }
-
   else
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS*/
 }
 
 uint16_t ioModbus::writeSingleCoil(uint16_t startingAddress)

@@ -1,3 +1,5 @@
+//#define _DEBUG_IO_MODBUS
+
 #include "Arduino.h"
 #include "ioModbus.h"
 #include "ioSerial.h"
@@ -57,12 +59,9 @@ void ioModbusSlave::init(uint8_t address){
 void ioModbusSlave::poll()
 {
     int buffer = readPacket();
-
     if (buffer > 7)
     {
-
         uint8_t id = frame[0];
-
         if (id == address) // if the recieved ID matches the slaveID or broadcasting id (0), continue
         {
             printBuffer(frame, buffer);

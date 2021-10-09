@@ -198,6 +198,7 @@ uint16_t ioModbus::receivePDU(uint8_t *frameInput, uint16_t sizeInput)
   return sizeOutput;
 };
 
+
 void ioModbus::addRegisters(uint16_t address, uint16_t *registers, uint16_t size)
 {
   register_t *newreg;
@@ -231,6 +232,150 @@ void ioModbus::addInputRegisters(uint16_t offset, uint16_t *holdingRegisters, ui
 {
   this->addRegisters(offset + MODBUS_ADDRESS_INPUT_REGISTERS, holdingRegisters, sizeHoldingRegister);
 };
+
+uint16_t ioModbus::readRegisters(uint16_t startingAddress, uint16_t no_of_registers, uint16_t functionAddress)
+{
+  uint8_t noOfBytes = no_of_registers * 2;
+  //Check value (numregs)
+  if (no_of_registers < 0x0001 || no_of_registers > 0x007D)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
+
+  //Check Address
+  register_t *searchReg;
+  searchReg = this->searchRegister(startingAddress + functionAddress);
+  if (!searchReg)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  uint16_t maxData = startingAddress + no_of_registers;
+  uint16_t offset = searchReg->address - functionAddress;
+
+  // check Address
+  if (functionAddress + maxData > searchReg->address + searchReg->size)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  frame[0] = address;
+  frame[2] = noOfBytes;
+
+  uint8_t idx = 3; // PDU starts at the 4th byte
+  for (uint16_t index = startingAddress; index < maxData; index++)
+  {
+    uint16_t pos = index - offset;
+    uint16_t temp = searchReg->registers[pos];
+    frame[idx++] = temp >> 8; // split the register into 2 bytes
+    frame[idx++] = temp & 0xFF;
+  }
+  return idx;
+}
+
+uint16_t ioModbus::writeSingleRegister(uint16_t startingAddress)
+{
+  uint16_t functionAddress = MODBUS_ADDRESS_HOLDING_REGISTERS;
+  
+  //Check Address
+  register_t *searchReg;
+  searchReg = this->searchRegister(startingAddress + functionAddress);
+
+  if (searchReg == 0)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  uint16_t maxData = startingAddress + 1;
+  uint16_t offset = searchReg->address - functionAddress;
+
+  // check Address
+  if (functionAddress + maxData > searchReg->address + searchReg->size)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  uint16_t regStatus = ((frame[4] << 8) | frame[5]);
+  uint16_t pos = startingAddress - offset;
+  searchReg->registers[pos] = regStatus;
+  return 6;
+}
+
+uint16_t ioModbus::writeMultipleRegisters(uint16_t startingAddress, uint16_t no_of_registers)
+{
+  uint8_t noOfBytes = no_of_registers * 2;
+  uint16_t functionAddress = MODBUS_ADDRESS_HOLDING_REGISTERS;
+  
+  //Check value
+  if (no_of_registers < 0x0001 || no_of_registers > 0x007B || frame[6] != noOfBytes)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
+
+  //Check Address (startreg...startreg + numregs)
+  register_t *searchReg;
+  searchReg = this->searchRegister(startingAddress + functionAddress);
+  if (searchReg == 0)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  uint16_t maxData = startingAddress + no_of_registers;
+  uint16_t offset = searchReg->address - functionAddress;
+
+  // check exception 2 ILLEGAL DATA ADDRESS
+  if (functionAddress + maxData > searchReg->address + searchReg->size)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  //frame[0] = address;
+
+  uint8_t idx = 7; // start at the 8th byte in the frame
+  for (uint16_t index = startingAddress; index < maxData; index++)
+  {
+    uint16_t pos = index - offset;
+    searchReg->registers[pos] = ((frame[idx] << 8) | frame[idx + 1]);
+    idx += 2;
+  }
+  return 6;
+}
+
+register_t *ioModbus::searchRegister(uint16_t address)
+{
+  register_t *reg = _regs_head;
+  //if there is no register configured, bail
+  if (reg == 0)
+    return (0);
+  //scan through the linked list until the end of the list or the register is found.
+  //return the pointer.
+  do
+  {
+    if (address >= reg->address && address <= (reg->address + reg->size))
+      return (reg);
+    reg = reg->next;
+  } while (reg);
+  return (0);
+}
+
+
+void ioModbus::addDiscrets(uint16_t address, uint8_t *discrets, uint8_t size)
+{
+  discreet_t *newdisc;
+
+  newdisc = (discreet_t *)malloc(sizeof(discreet_t));
+  newdisc->address = address;
+  newdisc->discrets = discrets;
+  newdisc->size = size;
+  newdisc->next = 0;
+
+  if (_disc_head == 0)
+  {
+    _disc_head = newdisc;
+    _disc_last = _disc_head;
+  }
+  else
+  {
+    //Assign the last register's next pointer to newreg.
+    _disc_last->next = newdisc;
+    //then make temp the last register in the list.
+    _disc_last = newdisc;
+  }
+}
+
+void ioModbus::addDiscretsCoil(uint16_t offset, uint8_t *discrets, uint8_t size)
+{
+  addDiscrets(offset + MODBUS_ADDRESS_DISCRETE_COILS, discrets, size);
+}
+
+void ioModbus::addDiscretsInput(uint16_t offset, uint8_t *discrets, uint8_t size)
+{
+  addDiscrets(offset + MODBUS_ADDRESS_DISCRETE_INPUTS, discrets, size);
+}
 
 uint16_t ioModbus::readDiscrets(uint16_t startingAddress, uint16_t no_of_registers, uint16_t functionAddress)
 {
@@ -276,235 +421,67 @@ uint16_t ioModbus::readDiscrets(uint16_t startingAddress, uint16_t no_of_registe
 
 uint16_t ioModbus::writeSingleCoil(uint16_t startingAddress)
 {
-  discreet_t *searchDisc;
+  uint16_t status = ((frame[4] << 8) | frame[5]);
   uint8_t functionAddress = MODBUS_ADDRESS_DISCRETE_COILS;
-  uint8_t function = frame[1];
 
+  //Check value (status)
+  if (status != 0xFF00 && status != 0x0000)
+    return this->exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
+
+  //Check Address and execute (reg exists?)
+  discreet_t *searchDisc;
   searchDisc = this->searchDiscreet(startingAddress + functionAddress);
-  if (searchDisc != 0)
-  {
-    uint16_t offset = searchDisc->address - functionAddress;
-    uint16_t maxData = startingAddress + 1;
-    //check exception 2 ILLEGAL DATA ADDRESS
-    if (startingAddress + functionAddress <= searchDisc->address + searchDisc->size * 8)
-    {
-      // check exception 3 ILLEGAL DATA VALUE
-      if (maxData + functionAddress <= searchDisc->address + searchDisc->size * 8)
-      {
-        // [07][05][01][F8][00][00]
-        // [07][05][01][FC][FF][00]
-        uint16_t status = ((frame[4] << 8) | frame[5]);
-        if (status != 0xFF00 && status != 0x0000)
-          return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
-        else
-        {
-          uint16_t pos = startingAddress - offset;
-          bitWrite(searchDisc->discrets[pos / 8], pos % 8, (bool)status);
-          return 6;
-        }
-      }
-      else
-        return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE); // exception 3 ILLEGAL DATA VALUE
-    }
-    else
-      return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS*/
-  }
-  else
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+  if (!searchDisc)
+    return this->exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  uint16_t maxData = startingAddress + 1;
+  uint16_t offset = searchDisc->address - functionAddress;
+
+  //check exception 2 ILLEGAL DATA ADDRESS
+  if (maxData + functionAddress > searchDisc->address + searchDisc->size * 8)
+    return this->exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  uint16_t pos = startingAddress - offset;
+  bitWrite(searchDisc->discrets[pos / 8], pos % 8, (bool)status);
+  return 6;
 }
 
 uint16_t ioModbus::writeMultipleCoils(uint16_t startingAddress, uint16_t no_of_discrets)
 {
+  //Check value
+  uint8_t noOfBytes = no_of_discrets / 8;
+  if (no_of_discrets % 8 > 0)
+    noOfBytes++;
+  if (no_of_discrets < 0x0001 || no_of_discrets > 0x07B0 || frame[6] != noOfBytes)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
+
+  //Check Address
   discreet_t *searchDisc;
   searchDisc = this->searchDiscreet(startingAddress + MODBUS_ADDRESS_DISCRETE_COILS);
+  if (!searchDisc)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 
-  if (searchDisc != 0)
+  uint16_t maxData = startingAddress + no_of_discrets;
+  uint16_t offset = searchDisc->address - MODBUS_ADDRESS_DISCRETE_COILS;
+
+  // check Address
+  if (maxData + MODBUS_ADDRESS_DISCRETE_COILS > searchDisc->address + searchDisc->size * 8)
+    return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
+
+  uint8_t noOfBytes = frame[6];
+  for (uint16_t idx = 0; idx < noOfBytes; idx++)
   {
-    uint8_t function = frame[1];
-
-    uint16_t offset = searchDisc->address - MODBUS_ADDRESS_DISCRETE_COILS;
-    uint16_t maxData = startingAddress + no_of_discrets;
-
-    // check exception 2 ILLEGAL DATA ADDRESS
-    //Serial.print(startingAddress + MODBUS_ADDRESS_DISCRETE_COILS + no_of_discrets); Serial.print("<="); Serial.println(searchDisc->address + searchDisc->size * 8);
-    if (startingAddress + MODBUS_ADDRESS_DISCRETE_COILS + no_of_discrets <= searchDisc->address + searchDisc->size * 8)
+    uint8_t temp = frame[7 + idx];
+    uint16_t diff = startingAddress - offset;
+    for (uint16_t index = startingAddress; index < maxData; index++)
     {
-      // check exception 3 ILLEGAL DATA VALUE
-      if (maxData + MODBUS_ADDRESS_DISCRETE_COILS <= searchDisc->address + searchDisc->size * 8)
-      {
-        uint8_t noOfBytes = frame[6];
-        for (uint16_t idx = 0; idx < noOfBytes; idx++)
-        {
-          uint8_t temp = frame[7 + idx];
-          uint16_t diff = startingAddress - offset;
-          for (uint16_t index = startingAddress; index < maxData; index++)
-          {
-            uint16_t pos = index - offset;
-            uint8_t i = (pos - diff) / 8;
-            uint8_t j = (pos - diff) % 8;
-            bitWrite(searchDisc->discrets[pos / 8], pos % 8, bitRead(temp, j));
-          }
-        }
-        return 6;
-      }
-      else
-        return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE); // exception 3 ILLEGAL DATA VALUE
+      uint16_t pos = index - offset;
+      uint8_t i = (pos - diff) / 8;
+      uint8_t j = (pos - diff) % 8;
+      bitWrite(searchDisc->discrets[pos / 8], pos % 8, bitRead(temp, j));
     }
-    else
-      return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS); // exception 2 ILLEGAL DATA ADDRESS*/
-  }
-  else
-    return exceptionResponse(MODBUS_FUNCTION_READ_HOLDING_REGISTERS, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
-}
-
-uint16_t ioModbus::readRegisters(uint16_t startingAddress, uint16_t no_of_registers, uint16_t functionAddress)
-{
-  uint8_t function = frame[1];
-  //Check value (numregs)
-  if (no_of_registers < 0x0001 || no_of_registers > 0x007D)
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
-
-  //Check Address
-  register_t *searchReg;
-  searchReg = this->searchRegister(startingAddress + functionAddress);
-  if (searchReg == 0)
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
-
-  uint16_t maxData = startingAddress + no_of_registers;
-  uint16_t offset = searchReg->address - functionAddress;
-
-  // check exception 2 ILLEGAL DATA ADDRESS
-  if (functionAddress + maxData > searchReg->address + searchReg->size)
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
-
-  uint8_t noOfBytes = no_of_registers * 2;
-
-  frame[0] = address;
-  frame[1] = function;
-  frame[2] = noOfBytes;
-
-  uint8_t idx = 3; // PDU starts at the 4th byte
-  for (uint16_t index = startingAddress; index < maxData; index++)
-  {
-    uint16_t pos = index - offset;
-    uint16_t temp = searchReg->registers[pos];
-    frame[idx++] = temp >> 8; // split the register into 2 bytes
-    frame[idx++] = temp & 0xFF;
-  }
-  return idx;
-}
-
-uint16_t ioModbus::writeSingleRegister(uint16_t startingAddress)
-{
-  uint8_t function = frame[1];
-  uint16_t functionAddress = MODBUS_ADDRESS_HOLDING_REGISTERS;
-  //Check Address
-  register_t *searchReg;
-  searchReg = this->searchRegister(startingAddress + functionAddress);
-
-  if (searchReg == 0)
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
-
-  uint16_t maxData = startingAddress + 1;
-  uint16_t offset = searchReg->address - functionAddress;
-
-  // check exception 2 ILLEGAL DATA ADDRESS
-  if (functionAddress + maxData > searchReg->address + searchReg->size)
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
-
-  //uint16_t startingAddress = ((frame[2] << 8) | frame[3]);
-  uint16_t regStatus = ((frame[4] << 8) | frame[5]);
-  uint16_t pos = startingAddress - offset;
-  searchReg->registers[pos] = regStatus;
-  return 6;
-}
-
-uint16_t ioModbus::writeMultipleRegisters(uint16_t startingAddress, uint16_t no_of_registers)
-{
-  uint8_t function = frame[1];
-  uint8_t noOfBytes = no_of_registers * 2;
-  uint16_t functionAddress = MODBUS_ADDRESS_HOLDING_REGISTERS;
-  //Check value
-  if (no_of_registers < 0x0001 || no_of_registers > 0x007B || frame[6] != noOfBytes)
-    return exceptionResponse(MODBUS_FUNCTION_WRITE_MULTIPLE_REGISTERS, MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
-
-  //Check Address (startreg...startreg + numregs)
-  register_t *searchReg;
-  searchReg = this->searchRegister(startingAddress + functionAddress);
-  if (searchReg == 0)
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
-
-  uint16_t maxData = startingAddress + no_of_registers;
-  uint16_t offset = searchReg->address - functionAddress;
-
-  // check exception 2 ILLEGAL DATA ADDRESS
-  if (functionAddress + maxData > searchReg->address + searchReg->size)
-    return exceptionResponse(function, MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
-
-  //frame[0] = address;
-  //frame[1] = function;
-
-  uint8_t idx = 7; // start at the 8th byte in the frame
-  for (uint16_t index = startingAddress; index < maxData; index++)
-  {
-    uint16_t pos = index - offset;
-    searchReg->registers[pos] = ((frame[idx] << 8) | frame[idx + 1]);
-    idx += 2;
   }
   return 6;
-}
-
-register_t *ioModbus::searchRegister(uint16_t address)
-{
-  register_t *reg = _regs_head;
-  //if there is no register configured, bail
-  if (reg == 0)
-    return (0);
-  //scan through the linked list until the end of the list or the register is found.
-  //return the pointer.
-  do
-  {
-    //if (reg->address == address)
-    //  return (reg);
-    if (address >= reg->address && address <= (reg->address + reg->size))
-      return (reg);
-    reg = reg->next;
-  } while (reg);
-  return (0);
-}
-
-void ioModbus::addDiscrets(uint16_t address, uint8_t *discrets, uint8_t size)
-{
-  discreet_t *newdisc;
-
-  newdisc = (discreet_t *)malloc(sizeof(discreet_t));
-  newdisc->address = address;
-  newdisc->discrets = discrets;
-  newdisc->size = size;
-  newdisc->next = 0;
-
-  if (_disc_head == 0)
-  {
-    _disc_head = newdisc;
-    _disc_last = _disc_head;
-  }
-  else
-  {
-    //Assign the last register's next pointer to newreg.
-    _disc_last->next = newdisc;
-    //then make temp the last register in the list.
-    _disc_last = newdisc;
-  }
-}
-
-void ioModbus::addDiscretsCoil(uint16_t offset, uint8_t *discrets, uint8_t size)
-{
-  addDiscrets(offset + MODBUS_ADDRESS_DISCRETE_COILS, discrets, size);
-}
-
-void ioModbus::addDiscretsInput(uint16_t offset, uint8_t *discrets, uint8_t size)
-{
-  addDiscrets(offset + MODBUS_ADDRESS_DISCRETE_INPUTS, discrets, size);
 }
 
 discreet_t *ioModbus::searchDiscreet(uint16_t address)

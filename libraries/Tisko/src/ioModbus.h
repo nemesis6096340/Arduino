@@ -466,7 +466,7 @@ uint16_t ioModbus::writeMultipleCoils(uint16_t startingAddress, uint16_t no_of_d
   if (maxData + MODBUS_ADDRESS_DISCRETE_COILS > searchDisc->address + searchDisc->size * 8)
     return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS);
 
-  uint8_t noOfBytes = frame[6];
+  //noOfBytes = frame[6];
   for (uint16_t idx = 0; idx < noOfBytes; idx++)
   {
     uint8_t temp = frame[7 + idx];

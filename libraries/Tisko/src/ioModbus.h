@@ -198,7 +198,6 @@ uint16_t ioModbus::receivePDU(uint8_t *frameInput, uint16_t sizeInput)
   return sizeOutput;
 };
 
-
 void ioModbus::addRegisters(uint16_t address, uint16_t *registers, uint16_t size)
 {
   register_t *newreg;
@@ -270,7 +269,7 @@ uint16_t ioModbus::readRegisters(uint16_t startingAddress, uint16_t no_of_regist
 uint16_t ioModbus::writeSingleRegister(uint16_t startingAddress)
 {
   uint16_t functionAddress = MODBUS_ADDRESS_HOLDING_REGISTERS;
-  
+
   //Check Address
   register_t *searchReg;
   searchReg = this->searchRegister(startingAddress + functionAddress);
@@ -295,7 +294,7 @@ uint16_t ioModbus::writeMultipleRegisters(uint16_t startingAddress, uint16_t no_
 {
   uint8_t noOfBytes = no_of_registers * 2;
   uint16_t functionAddress = MODBUS_ADDRESS_HOLDING_REGISTERS;
-  
+
   //Check value
   if (no_of_registers < 0x0001 || no_of_registers > 0x007B || frame[6] != noOfBytes)
     return exceptionResponse(MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE);
@@ -341,7 +340,6 @@ register_t *ioModbus::searchRegister(uint16_t address)
   } while (reg);
   return (0);
 }
-
 
 void ioModbus::addDiscrets(uint16_t address, uint8_t *discrets, uint8_t size)
 {

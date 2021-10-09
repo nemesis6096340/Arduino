@@ -15,7 +15,7 @@ uint8_t discretInput[1] = {0b00000011};
 uint8_t discretOutput[1] = {0b00000000};
 
 const uint8_t pinMask_DIN[] = {2, 3};
-const uint8_t pinMask_DOUT[] = {7, 8,A2,A3};
+const uint8_t pinMask_DOUT[] = {7, 8, A2, A3};
 const uint8_t pinMask_AIN[] = {A0, A1};
 const uint8_t pinMask_AOUT[] = {5, 6};
 

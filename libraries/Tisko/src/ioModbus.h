@@ -28,11 +28,21 @@ enum
 //Exception Codes
 enum
 {
+  MODBUS_NO_REPLY = 0xFF,                        //No reply
   MODBUS_EXCEPTION_CODE_ILLEGAL_FUNCTION = 0x01, // Function Code not Supported
   MODBUS_EXCEPTION_CODE_ILLEGAL_ADDRESS = 0x02,  // Output Address not exists
   MODBUS_EXCEPTION_CODE_ILLEGAL_VALUE = 0x03,    // Output Value not in Range
   MODBUS_EXCEPTION_CODE_SLAVE_FAILURE = 0x04,    // Slave Deive Fails to process request
 };
+
+typedef struct
+{
+  uint8_t id;               /*!< Slave address between 1 and 247. 0 means broadcast */
+  uint8_t function;         /*!< Function code: 1, 2, 3, 4, 5, 6, 15 or 16 */
+  uint16_t startingAddress; /*!< Address of the first register to access at slave/s */
+  uint16_t noOfRegisters;   /*!< Number of coils or registers to access */
+  uint16_t *registers;      /*!< Pointer to memory image in master */
+} modbus_packet_t;
 
 typedef struct register_t
 {
@@ -57,6 +67,7 @@ protected:
   uint8_t *frame;
 
   uint16_t errorCount = 0;
+  uint16_t calculateCRC(uint8_t);
 
 private:
   register_t *_regs_head;
@@ -103,6 +114,30 @@ public:
 
   void printBuffer(uint8_t *, uint8_t);
   void printRegister(uint16_t *, uint16_t);
+};
+
+uint16_t ioModbus::calculateCRC(uint8_t bufferSize)
+{
+  uint16_t temp, temp2, flag;
+  temp = 0xFFFF;
+  for (uint8_t i = 0; i < bufferSize; i++)
+  {
+    temp = temp ^ frame[i];
+    for (uint8_t j = 1; j <= 8; j++)
+    {
+      flag = temp & 0x0001;
+      temp >>= 1;
+      if (flag)
+        temp ^= 0xA001;
+    }
+  }
+  // Reverse byte order.
+  temp2 = temp >> 8;
+  temp = (temp << 8) | temp2;
+  temp &= 0xFFFF;
+  // the returned value is already swapped
+  // crcLo byte is first & crcHi byte is last
+  return temp;
 };
 
 void ioModbus::printRegister(uint16_t *registers, uint16_t size)

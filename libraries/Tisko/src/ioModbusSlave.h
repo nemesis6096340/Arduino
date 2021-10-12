@@ -15,8 +15,6 @@ private:
     uint8_t frame[BUFFER_SIZE];
     uint16_t errorCount;
 
-    uint16_t calculateCRC(uint8_t);
-
 public:
     ioModbusSlave(HardwareSerial &SerialPort, int TxEnablePin=-1) : ioModbus(247), ioSerial(SerialPort, frame, BUFFER_SIZE, TxEnablePin){};
     ~ioModbusSlave(){};
@@ -27,29 +25,7 @@ public:
 
 // PRIVATE
 
-uint16_t ioModbusSlave::calculateCRC(uint8_t bufferSize)
-{
-    uint16_t temp, temp2, flag;
-    temp = 0xFFFF;
-    for (uint8_t i = 0; i < bufferSize; i++)
-    {
-        temp = temp ^ frame[i];
-        for (uint8_t j = 1; j <= 8; j++)
-        {
-            flag = temp & 0x0001;
-            temp >>= 1;
-            if (flag)
-                temp ^= 0xA001;
-        }
-    }
-    // Reverse byte order.
-    temp2 = temp >> 8;
-    temp = (temp << 8) | temp2;
-    temp &= 0xFFFF;
-    // the returned value is already swapped
-    // crcLo byte is first & crcHi byte is last
-    return temp;
-};
+
 
 // PUBLIC
 void ioModbusSlave::init(uint8_t address){

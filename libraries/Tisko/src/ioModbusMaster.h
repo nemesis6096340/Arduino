@@ -46,7 +46,7 @@ private:
     void getRegisters();
 
 public:
-    ioModbusMaster(HardwareSerial &SerialPort, int TxEnablePin = -1) : ioModbus(0), ioSerial(SerialPort, frame, BUFFER_SIZE, TxEnablePin){};
+    ioModbusMaster() : ioModbus(0), ioSerial(frame, (uint16_t)BUFFER_SIZE){};
     ~ioModbusMaster(){};
 
     int8_t query(modbus_packet_t);

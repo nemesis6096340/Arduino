@@ -24,15 +24,6 @@ public:
     void poll();
 };
 
-// PRIVATE
-
-
-
-// PUBLIC
-/*void ioModbusSlave::init(uint8_t address){
-    setAddress(address);
-}*/
-
 void ioModbusSlave::poll()
 {
     int buffer = readPacket();

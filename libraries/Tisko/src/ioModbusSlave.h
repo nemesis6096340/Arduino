@@ -16,7 +16,8 @@ private:
     uint16_t errorCount;
 
 public:
-    ioModbusSlave(HardwareSerial &SerialPort, int TxEnablePin=-1) : ioModbus(247), ioSerial(SerialPort, frame, BUFFER_SIZE, TxEnablePin){};
+    //ioModbusSlave(HardwareSerial &SerialPort, int TxEnablePin=-1) : ioModbus(247), ioSerial(SerialPort, frame, BUFFER_SIZE, TxEnablePin){};
+    ioModbusSlave() : ioModbus(247), ioSerial(frame, (uint16_t)BUFFER_SIZE){};
     ~ioModbusSlave(){};
 
     void init(uint8_t);
@@ -28,9 +29,9 @@ public:
 
 
 // PUBLIC
-void ioModbusSlave::init(uint8_t address){
+/*void ioModbusSlave::init(uint8_t address){
     setAddress(address);
-}
+}*/
 
 void ioModbusSlave::poll()
 {

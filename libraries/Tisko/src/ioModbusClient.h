@@ -21,7 +21,8 @@ private:
 
 public:
     ioModbusClient() : serverModbus(DEFAULT_MODBUSIP_PORT), ioModbus(247){};
-    ioModbusClient(uint8_t address, uint16_t port = DEFAULT_MODBUSIP_PORT) : serverModbus(port), ioModbus(address){};
+    ioModbusClient(uint16_t port) : serverModbus(port), ioModbus(247){};
+    ioModbusClient(uint16_t port, uint8_t address) : serverModbus(port), ioModbus(address){};
 
     void begin(uint16_t port = DEFAULT_MODBUSIP_PORT);
 

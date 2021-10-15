@@ -3,7 +3,7 @@
 
 #include <ioModbusClient.h>
 
-ioModbusClient modbusIP(7, 502);
+ioModbusClient modbusIP(502);
 
 byte mac[] = {0x90, 0xA2, 0xDA, 0xAC, 0x00, 0x00};
 IPAddress ip(10, 0, 115, 7);

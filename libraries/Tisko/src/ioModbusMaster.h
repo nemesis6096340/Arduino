@@ -55,7 +55,7 @@ public:
 
 int8_t ioModbusMaster::query(modbus_packet_t telegram)
 {
-    uint8_t frameSize = 0;
+    uint8_t size = 0;
 
     if (address != 0)
         return -2;
@@ -80,17 +80,17 @@ int8_t ioModbusMaster::query(modbus_packet_t telegram)
     case MODBUS_FUNCTION_READ_INPUT_REGISTERS:
         frame[4] = highByte(telegram.noOfRegisters);
         frame[5] = lowByte(telegram.noOfRegisters);
-        frameSize = 6;
+        size = 6;
         break;
     case MODBUS_FUNCTION_WRITE_SINGLE_COIL:
         frame[4] = ((registers[0] > 0) ? 0xff : 0);
         frame[5] = 0;
-        frameSize = 6;
+        size = 6;
         break;
     case MODBUS_FUNCTION_WRITE_SINGLE_REGISTER:
         frame[4] = highByte(registers[0]);
         frame[5] = lowByte(registers[0]);
-        frameSize = 6;
+        size = 6;
         break;
     case MODBUS_FUNCTION_WRITE_MULTIPLE_COILS: // TODO: implement "sending coils"
         uint8_t noOfRegs = telegram.noOfRegisters / 16;
@@ -104,19 +104,19 @@ int8_t ioModbusMaster::query(modbus_packet_t telegram)
         frame[4] = highByte(telegram.noOfRegisters);
         frame[5] = lowByte(telegram.noOfRegisters);
         frame[6] = noOfBytes;
-        frameSize = 7;
+        size = 7;
 
         for (uint16_t i = 0; i < noOfBytes; i++)
         {
             if (i % 2)
             {
-                frame[frameSize] = lowByte(registers[i / 2]);
+                frame[size] = lowByte(registers[i / 2]);
             }
             else
             {
-                frame[frameSize] = highByte(registers[i / 2]);
+                frame[size] = highByte(registers[i / 2]);
             }
-            frameSize++;
+            size++;
         }
         break;
 
@@ -124,40 +124,40 @@ int8_t ioModbusMaster::query(modbus_packet_t telegram)
         frame[4] = highByte(telegram.noOfRegisters);
         frame[5] = lowByte(telegram.noOfRegisters);
         frame[6] = (uint8_t)(telegram.noOfRegisters * 2);
-        frameSize = 7;
+        size = 7;
 
         for (uint16_t i = 0; i < telegram.noOfRegisters; i++)
         {
-            frame[frameSize] = highByte(registers[i]);
-            frameSize++;
-            frame[frameSize] = lowByte(registers[i]);
-            frameSize++;
+            frame[size] = highByte(registers[i]);
+            size++;
+            frame[size] = lowByte(registers[i]);
+            size++;
         }
         break;
     }
 
-    uint16_t crc = calculateCRC(frameSize);
-    frame[frameSize] = crc >> 8;
-    frameSize++;
-    frame[frameSize] = crc & 0x00ff;
-    frameSize++;
+    uint16_t crc = calculateCRC(frame, size);
+    frame[size] = crc >> 8;
+    size++;
+    frame[size] = crc & 0x00ff;
+    size++;
 
-    sendPacket(frameSize);
+    sendPacket(size);
     state = COM_WAITING;
     return 0;
 }
 
 int8_t ioModbusMaster::poll()
 {
-    uint8_t frameSize = readPacket();
-    if (frameSize < 6) //7 was incorrect for functions 1 and 2 the smallest frame could be 6 bytes long
+    int sizeInput = readPacket();
+    if (sizeInput < 6) // 7 was incorrect for functions 1 and 2 the smallest frame could be 6 bytes long
     {
         state = COM_IDLE;
-        return frameSize;
+        return sizeInput;
     }
 
     // validate message: id, CRC, FCT, exception
-    uint8_t u8exception = validateAnswer(frameSize);
+    uint8_t u8exception = validateAnswer(sizeInput);
     if (u8exception != 0)
     {
         state = COM_IDLE;
@@ -185,14 +185,14 @@ int8_t ioModbusMaster::poll()
         break;
     }
     state = COM_IDLE;
-    return frameSize;
+    return sizeInput;
 }
 
-uint8_t ioModbusMaster::validateAnswer(uint8_t frameSize)
+uint8_t ioModbusMaster::validateAnswer(uint8_t size)
 {
     // check message crc vs calculated crc
-    uint16_t crc = ((frame[frameSize - 2] << 8) | frame[frameSize - 1]); // combine the crc Low & High bytes
-    if (calculateCRC(frameSize - 2) != crc)
+    uint16_t crc = ((frame[size - 2] << 8) | frame[size - 1]); // combine the crc Low & High bytes
+    if (calculateCRC(frame, size - 2) != crc)
     {
         errorCount++;
         return MODBUS_NO_REPLY;

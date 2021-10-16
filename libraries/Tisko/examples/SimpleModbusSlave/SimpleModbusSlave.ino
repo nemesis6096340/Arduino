@@ -20,6 +20,7 @@ uint16_t holdingRegisters[NUM_HOLDING_REGISTERS];
 
 void setup()
 {
+    //Serial.begin(19200, SERIAL_8E2);
     modbusRTU.config(Serial, 19200, SERIAL_8E2);
     modbusRTU.setAddress(7);
 

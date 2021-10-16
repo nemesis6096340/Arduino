@@ -6,6 +6,7 @@
 class ioSerial
 {
 protected:
+    //HardwareSerial *Port;
     Stream* Port;
 
 private:

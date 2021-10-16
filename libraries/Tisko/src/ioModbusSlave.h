@@ -1,5 +1,3 @@
-//#define _DEBUG_IO_MODBUS
-
 #include "Arduino.h"
 #include "ioModbus.h"
 #include "ioSerial.h"

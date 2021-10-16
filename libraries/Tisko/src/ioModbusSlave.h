@@ -1,3 +1,4 @@
+#define _DEBUG_IO_MODBUS
 #include "Arduino.h"
 #include "ioModbus.h"
 #include "ioSerial.h"
@@ -24,18 +25,19 @@ public:
 
 void ioModbusSlave::poll()
 {
-    int buffer = readPacket();
-    if (buffer > 7)
+    int sizeInput = readPacket();
+    if (sizeInput > 7)
     {
         uint8_t id = frame[0];
         if (id == address) // if the recieved ID matches the slaveID or broadcasting id (0), continue
         {
-            printBuffer(frame, buffer);
-            uint16_t crc = ((frame[buffer - 2] << 8) | frame[buffer - 1]); // combine the crc Low & High bytes
-            if (calculateCRC(buffer - 2) == crc)                           // if the calculated crc matches the recieved crc continue
+            uint16_t crc = ((frame[sizeInput - 2] << 8) | frame[sizeInput - 1]); // combine the crc Low & High bytes
+            if (calculateCRC(frame, sizeInput - 2) == crc)                           // if the calculated crc matches the recieved crc continue
             {
-                uint16_t sizeOutput = receivePDU(frame, buffer);
-                uint16_t crc16 = calculateCRC(sizeOutput);
+                //printBuffer(frame, sizeInput);
+                uint16_t sizeOutput = receivePDU(frame, sizeInput);
+                //printBuffer(frame, sizeOutput);
+                uint16_t crc16 = calculateCRC(frame, sizeOutput);
                 frame[sizeOutput++] = crc16 >> 8; // split crc into 2 bytes
                 frame[sizeOutput++] = crc16 & 0xFF;
                 sendPacket(sizeOutput);
@@ -44,7 +46,7 @@ void ioModbusSlave::poll()
                 errorCount++;
         } // incorrect id
     }
-    else if (buffer > 0 && buffer < 8)
+    else if (sizeInput > 0 && sizeInput < 8)
         errorCount++; // corrupted packet
 };
 #endif

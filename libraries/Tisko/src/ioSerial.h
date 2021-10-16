@@ -2,7 +2,9 @@
 #define _IO_SERIAL_h
 
 #include "Arduino.h"
-
+#ifdef USE_SOFTWARE_SERIAL
+#include <SoftwareSerial.h>
+#endif
 class ioSerial
 {
 protected:
@@ -11,7 +13,7 @@ protected:
 
 private:
     uint8_t *Frame;
-    uint16_t FrameSize;
+    uint16_t Size;
 
     int TxEnablePin;
 
@@ -21,7 +23,7 @@ private:
     void setTimeout(uint32_t);
 
 public:
-    ioSerial(uint8_t *Frame, uint16_t FrameSize);
+    ioSerial(uint8_t *Frame, uint16_t Size);
     ~ioSerial();
 
     void config(HardwareSerial &Port, uint32_t BaudRate, uint8_t ByteFormat=SERIAL_8N1, int TxEnablePin = -1);
@@ -41,10 +43,10 @@ public:
     uint16_t readPacket();
 };
 
-ioSerial::ioSerial(uint8_t *Frame, uint16_t FrameSize)
+ioSerial::ioSerial(uint8_t *Frame, uint16_t Size)
 {
     this->Frame = Frame;
-    this->FrameSize = FrameSize;
+    this->Size = Size;
 };
 
 ioSerial::~ioSerial(){};
@@ -123,7 +125,7 @@ void ioSerial::setTimeout(uint16_t T1_5, uint16_t T3_5)
 
 void ioSerial::clear()
 {
-    for (int i = 0; i < FrameSize; i++)
+    for (int i = 0; i < Size; i++)
         Frame[i] = 0;
     this->flush();
 };
@@ -159,7 +161,7 @@ uint16_t ioSerial::readPacket()
                 Port->read();
             else
             {
-                if (buffer == FrameSize)
+                if (buffer == Size)
                     overflow = 1;
                 Frame[buffer] = Port->read();
                 buffer++;
@@ -171,7 +173,7 @@ uint16_t ioSerial::readPacket()
         // variable and return to the main sketch without
         // responding to the request i.e. force a timeout
         if (overflow)
-            return FrameSize;
+            return Size;
         return buffer;
     }
     return 0;

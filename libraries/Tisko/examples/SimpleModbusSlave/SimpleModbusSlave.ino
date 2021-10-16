@@ -21,6 +21,8 @@ uint16_t holdingRegisters[NUM_HOLDING_REGISTERS];
 void setup()
 {
     //Serial.begin(19200, SERIAL_8E2);
+    configurePins();
+    
     modbusRTU.config(Serial, 19200, SERIAL_8E2);
     modbusRTU.setAddress(7);
 
@@ -33,4 +35,58 @@ void setup()
 void loop()
 {
 	modbusRTU.poll();
+    update();
+}
+
+void configurePins()
+{
+    for (int i = 0; i < NUM_DISCRETE_INPUT; i++)
+    {
+        pinMode(pinMask_DIN[i], INPUT_PULLUP);
+    }
+
+    for (int i = 0; i < NUM_DISCRETE_COILS; i++)
+    {
+        pinMode(pinMask_DOUT[i], OUTPUT);
+    }
+
+    for (int i = 0; i < NUM_INPUT_REGISTERS; i++)
+    {
+        pinMode(pinMask_AIN[i], INPUT);
+    }
+
+    for (int i = 0; i < NUM_HOLDING_REGISTERS; i++)
+    {
+        pinMode(pinMask_AOUT[i], OUTPUT);
+    }
+}
+
+void update()
+{
+    // DISCRETE COILS
+    for (int i = 0; i < NUM_DISCRETE_COILS; ++i)
+    {
+        digitalWrite(
+            pinMask_DOUT[i],
+            !bitRead(discretOutput[i / 8], i % 8));
+    }
+    // DISCRETE INPUT
+    for (int i = 0; i < NUM_DISCRETE_INPUT; ++i)
+    {
+        uint8_t idx = i / 8;
+        bitWrite(
+            discretInput[i / 8],
+            i % 8,
+            digitalRead(pinMask_DIN[i]));
+    }
+    // INPUT REGISTER
+    for (int i = 0; i < NUM_INPUT_REGISTERS; ++i)
+    {
+        inputRegisters[i] = (analogRead(pinMask_AIN[i]) * 64);
+    }
+    // HOLDING REGISTER
+    for (int i = 0; i < NUM_HOLDING_REGISTERS; ++i)
+    {
+        analogWrite(pinMask_AOUT[i], (holdingRegisters[i] / 256));
+    }
 }

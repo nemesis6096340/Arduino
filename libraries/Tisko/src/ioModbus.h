@@ -67,7 +67,7 @@ protected:
   uint8_t *frame;
 
   uint16_t errorCount = 0;
-  uint16_t calculateCRC(uint8_t);
+  uint16_t calculateCRC(uint8_t *, uint8_t);
 
 private:
   register_t *_regs_head;
@@ -116,13 +116,13 @@ public:
   void printRegister(uint16_t *, uint16_t);
 };
 
-uint16_t ioModbus::calculateCRC(uint8_t bufferSize)
+uint16_t ioModbus::calculateCRC(uint8_t *buffer, uint8_t size)
 {
   uint16_t temp, temp2, flag;
   temp = 0xFFFF;
-  for (uint8_t i = 0; i < bufferSize; i++)
+  for (uint8_t i = 0; i < size; i++)
   {
-    temp = temp ^ frame[i];
+    temp = temp ^ buffer[i];
     for (uint8_t j = 1; j <= 8; j++)
     {
       flag = temp & 0x0001;
@@ -182,9 +182,9 @@ uint16_t ioModbus::exceptionResponse(uint8_t exception)
 
 uint16_t ioModbus::receivePDU(uint8_t *frameInput, uint16_t sizeInput)
 {
+  this->frame = frameInput;
   uint8_t id = frame[0];
   uint8_t function = frame[1];
-  this->frame = frameInput;
 
   uint16_t sizeOutput = 0;
   if (id == address)
